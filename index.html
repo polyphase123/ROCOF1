@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Rate of Change of Frequency (ROCOF) in Power Systems</title>
+  <meta name="description" content="Explore ROCOF dynamics, grid stability, inertia parameters, and global grid code requirements.">
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="header-container">
+      <div class="logo-section">
+        <h1>ROCOF <span>Explorer</span></h1>
+        <div class="subtitle">Power Grid Inertia & Frequency Stability</div>
+        <p style="margin-top: 6px; margin-bottom: 0; font-size: 0.8rem; max-width: 600px; color: var(--text-secondary); line-height: 1.4;">
+          <strong>Rate of Change of Frequency (ROCOF)</strong> measures how rapidly the grid frequency declines or rises immediately following a generation loss or load change. High ROCOF can trip protective relays and cause cascading blackouts.
+        </p>
+      </div>
+      <div class="toggle-container" style="margin-bottom: 0; width: 140px; flex-shrink: 0;">
+        <button class="toggle-btn freq-toggle" data-freq="50">50 Hz</button>
+        <button class="toggle-btn active freq-toggle" data-freq="60">60 Hz</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Compliance Info Banner (Top of App) -->
+    <div class="card full-width" style="background-color: var(--accent-light); border-color: rgba(0, 113, 227, 0.2); margin-bottom: 5px; padding: 18px;">
+      <h3 style="color: var(--accent); display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        🇵🇭 Philippine Grid & Distribution Code Compliance Reference (Default: 60 Hz)
+      </h3>
+      <p style="margin-bottom: 8px; font-size: 0.85rem; color: var(--text-primary);">
+        This application utilizes the <strong>Philippine Grid Code (PGC 2016) Section 3.2.4</strong> and <strong>Philippine Distribution Code (PDC 2017) Section 3.2.3</strong> as the primary baseline:
+        Nominal Frequency is set to <strong>60 Hz</strong>, Under-Frequency Load Shedding (UFLS) triggers at <strong>58.9 Hz</strong>, and the standard Variable Renewable Energy (VRE) ride-through limit is set to <strong>1.0 Hz/s</strong>.
+      </p>
+      <div style="font-size: 0.8rem; border-top: 1px solid rgba(0,113,227,0.1); padding-top: 8px; color: var(--text-secondary);">
+        <strong>⚡ 60 Hz Frequency Effect:</strong> Because the nominal frequency (f₀ = 60 Hz) is 20% higher than 50 Hz systems (like Europe or UK), the swing equation yields a <strong>20% steeper initial ROCOF slope</strong> for the same relative generation deficit (&Delta;P) and inertia (H). This leaves less time for governors to activate before hitting the 58.9 Hz UFLS threshold.
+      </div>
+    </div>
+
+    <!-- Left Column: Chart & Simulator Controls -->
+    <section class="card">
+      <h2>📈 Superimposed Frequency Simulation</h2>
+      <p>
+        Simulates a sudden generation loss event. Check or uncheck countries in the list on the right to <strong>superimpose their waveforms</strong>. 
+        Curves show frequency deviation from nominal to compare 50 Hz and 60 Hz grids side-by-side.
+      </p>
+      
+      <div class="simulation-container">
+        <canvas id="simulationChart"></canvas>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">Initial Peak ROCOF</div>
+          <div class="stat-value" id="val-rocof">0.00 Hz/s</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">Frequency Nadir</div>
+          <div class="stat-value" id="val-nadir">0.00 Hz</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Settings & Safety Evaluator -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      <section class="card">
+        <h2>⚙️ Grid Parameters (Custom)</h2>
+        
+        <div class="control-group">
+          <div class="control-label">
+            <span>Nominal System Frequency (f₀)</span>
+            <span class="control-val" id="lbl-f0">60 Hz</span>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Active Power Deficit (ΔP)</span>
+            <span class="control-val"><span id="val-deficit">8</span>%</span>
+          </div>
+          <input type="range" id="slide-deficit" min="1" max="20" step="0.5" value="8">
+          <div class="subtitle" style="margin-top: 4px;">Loss of generation capacity relative to system size.</div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Grid Inertia Constant (H)</span>
+            <span class="control-val"><span id="val-inertia">4.0</span>s</span>
+          </div>
+          <input type="range" id="slide-inertia" min="1.0" max="8.0" step="0.1" value="4.0">
+          <div class="subtitle" style="margin-top: 4px;">Lower inertia = faster frequency decline (high wind/solar penetration).</div>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Load Damping Factor (D)</span>
+            <span class="control-val"><span id="val-damping">1.0</span>%/Hz</span>
+          </div>
+          <input type="range" id="slide-damping" min="0.0" max="4.0" step="0.2" value="1.0">
+          <div class="subtitle" style="margin-top: 4px;">Natural load response reducing power draw as frequency drops.</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>🌐 Global Grid Code Standards</h2>
+        <div id="safety-badge" class="status-badge safe">
+          <span>🟢</span> Compliant: ROCOF within limits
+        </div>
+        <p>Select a country to view details. Check the boxes to superimpose their grid waveforms on the chart:</p>
+        
+        <div class="country-list">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <div id="details-box" class="details-box">
+          <!-- Populated by JavaScript -->
+        </div>
+      </section>
+    </div>
+
+    <!-- Educational Bottom Section -->
+    <section class="card full-width">
+      <h2>📖 What is ROCOF?</h2>
+      <p>
+        The <strong>Rate of Change of Frequency (ROCOF)</strong> measures how fast system frequency changes immediately following an imbalance between generation and demand. 
+        It is typically calculated right after an outage using the swing equation:
+      </p>
+      
+      <div class="formula-block">
+        ROCOF = &mdash;&mdash;&mdash;&mdash;
+        <div style="display: inline-block; text-align: center; vertical-align: middle;">
+          f₀ &times; &Delta;P
+          <div style="border-top: 1px solid var(--text-primary); margin-top: 2px; padding-top: 2px;">2 &times; H</div>
+        </div>
+      </div>
+
+      <div class="formula-legend">
+        <div><strong>f₀</strong>: Nominal Frequency (Hz)</div>
+        <div><strong>&Delta;P</strong>: Power Deficit (p.u.)</div>
+        <div><strong>H</strong>: Inertia Constant (seconds)</div>
+      </div>
+
+      <h3>Why ROCOF Standards Matter</h3>
+      <p>
+        Historically, traditional power grids relied on heavy synchronous generators (coal, gas, hydro) to naturally resist frequency changes. As these are replaced by wind, solar, and battery storage (which use fast inverters and lack natural mechanical inertia), the overall grid inertia (H) drops significantly.
+      </p>
+      <p>
+        If the ROCOF is too high, protection relays (ROCOF relays) will trigger and disconnect generators to prevent damage. However, if multiple generators trip at the same time, this can lead to a cascading blackout. Modern standards mandate high withstand limits to ensure grid integrity.
+      </p>
+
+      <h3 style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px;">📜 Technical Code Citations & Regulatory Provisions</h3>
+      <p>Below are the specific provisions and standard references used in grid compliance engineering globally:</p>
+      
+      <div style="overflow-x: auto; margin-top: 10px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 2px solid var(--border); color: var(--text-primary);">
+              <th style="padding: 10px 5px;">Region / Country</th>
+              <th style="padding: 10px 5px;">Regulatory Code & Specific Provision</th>
+              <th style="padding: 10px 5px;">Technical Requirement Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--border-light);">
+              <td style="padding: 10px 5px; font-weight: 600;">🇵🇭 Philippines</td>
+              <td style="padding: 10px 5px; font-family: monospace;">PGC 2016 Sec. 3.2.4 & PDC 2017 Sec. 3.2.3</td>
+              <td style="padding: 10px 5px;">Generators must continuously operate within 59.7 - 60.3 Hz; must ride through excursions down to 57.6 Hz and up to 62.4 Hz for ≥ 5 seconds. Grid codes specify a standard 1.0 Hz/s ride-through for new VRE (wind/solar) and BESS systems.</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-light);">
+              <td style="padding: 10px 5px; font-weight: 600;">🇮🇪 Ireland</td>
+              <td style="padding: 10px 5px; font-family: monospace;">EirGrid Grid Code Sec. CC.7.5.1.1</td>
+              <td style="padding: 10px 5px;">Mandates generation units to withstand ROCOF up to 1.0 Hz/s calculated over a rolling 500ms window (upgraded from 0.5 Hz/s to meet the 75%+ SNSP renewable integration goal).</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-light);">
+              <td style="padding: 10px 5px; font-weight: 600;">🇬🇧 Great Britain</td>
+              <td style="padding: 10px 5px; font-family: monospace;">National Grid G99 Sec. 13.1.1</td>
+              <td style="padding: 10px 5px;">Requires generators to ride through ROCOF events of up to 1.0 Hz/s measured over an average window of 500ms to protect against cascading loss of distributed generators.</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-light);">
+              <td style="padding: 10px 5px; font-weight: 600;">🇦🇺 Australia</td>
+              <td style="padding: 10px 5px; font-family: monospace;">AEMO NER Clause S5.2.5.3</td>
+              <td style="padding: 10px 5px;">Establishes a minimum access standard of 1.0 Hz/s for 1 second and automatic withstand capability up to 4.0 Hz/s over a rolling 250ms window.</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-light);">
+              <td style="padding: 10px 5px; font-weight: 600;">🇪🇺 Europe</td>
+              <td style="padding: 10px 5px; font-family: monospace;">ENTSO-E RfG Regulation EU 2016/631 Art. 13</td>
+              <td style="padding: 10px 5px;">Power-generating modules must stay synchronized and operate at rate-of-change-of-frequency values up to 2.0 Hz/s over a 500ms measurement window.</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-light);">
+              <td style="padding: 10px 5px; font-weight: 600;">🇺🇸 United States</td>
+              <td style="padding: 10px 5px; font-family: monospace;">IEEE 1547-2018 Clause 6.5.2</td>
+              <td style="padding: 10px 5px;">Requires Category II and III Distributed Energy Resources (DERs) to maintain grid connection during transient ROCOF events up to 3.0 Hz/s.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>ROCOF Interactive Grid Simulator &copy; 2026. Designed for all desktop and mobile platforms.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
